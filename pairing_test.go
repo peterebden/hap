@@ -3,6 +3,9 @@ package hap
 import (
 	"bytes"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestPairingDataRoundTrip(t *testing.T) {
@@ -13,23 +16,16 @@ func TestPairingDataRoundTrip(t *testing.T) {
 		ControllerLTSK: bytes.Repeat([]byte{0x02}, 32),
 	}
 	var buf bytes.Buffer
-	if err := in.Save(&buf); err != nil {
-		t.Fatalf("Save: %v", err)
-	}
+	require.NoError(t, in.Save(&buf))
+
 	out, err := LoadPairingData(&buf)
-	if err != nil {
-		t.Fatalf("LoadPairingData: %v", err)
-	}
-	if out.AccessoryID != in.AccessoryID || out.ControllerID != in.ControllerID ||
-		!bytes.Equal(out.AccessoryLTPK, in.AccessoryLTPK) || !bytes.Equal(out.ControllerLTSK, in.ControllerLTSK) {
-		t.Errorf("round-trip mismatch:\n got %+v\nwant %+v", out, in)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, in, out)
 }
 
 func TestLoadPairingDataRejectsBadKey(t *testing.T) {
 	// Valid JSON but the LTPK is the wrong length.
 	bad := `{"accessory_id":"x","accessory_ltpk":"AQID","controller_id":"y","controller_ltsk":"AQID"}`
-	if _, err := LoadPairingData(bytes.NewReader([]byte(bad))); err == nil {
-		t.Error("expected error for short LTPK, got nil")
-	}
+	_, err := LoadPairingData(bytes.NewReader([]byte(bad)))
+	assert.Error(t, err)
 }

@@ -5,6 +5,9 @@ import (
 	"encoding/hex"
 	"math/big"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // The SRP multiplier k = H(N | PAD(g)) is constant for HomeKit's fixed group. Pinning it
@@ -13,9 +16,7 @@ import (
 func TestSRPGroupConstant(t *testing.T) {
 	const want = "a9c2e2559bf0ebb53f0cbbf62282906bede7f2182f00678211fbd5bde5b285033a4993503b87397f9be5ec02080fedbc0835587ad039060879b8621e8c3659e0"
 	got := hex.EncodeToString(pad(srpMultiplier(), 64))
-	if got != want {
-		t.Errorf("k = %s\nwant %s", got, want)
-	}
+	assert.Equal(t, want, got)
 }
 
 // srpServer is a minimal SRP-6a server used only to exercise the client end-to-end: if
@@ -57,39 +58,24 @@ func TestSRPClientServerRoundTrip(t *testing.T) {
 	server := newSRPServer(password)
 
 	client, err := newSRPClient(password)
-	if err != nil {
-		t.Fatalf("newSRPClient: %v", err)
-	}
+	require.NoError(t, err)
 	m1, err := client.computeProof(server.salt, pad(server.B, srpByteLen()))
-	if err != nil {
-		t.Fatalf("computeProof: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Both sides must derive the same session key.
-	if !bytes.Equal(client.sessionKey(), server.sessionKey(client.publicKey())) {
-		t.Fatal("client and server derived different session keys")
-	}
+	require.Equal(t, server.sessionKey(client.publicKey()), client.sessionKey())
 
 	// The server proof the client expects: H(PAD(A) | M1 | K).
 	serverProof := sha512Sum(client.publicKey(), m1, client.sessionKey())
-	if !client.verifyServerProof(m1, serverProof) {
-		t.Error("verifyServerProof rejected a valid server proof")
-	}
-	if client.verifyServerProof(m1, bytes.Repeat([]byte{0}, 64)) {
-		t.Error("verifyServerProof accepted an invalid server proof")
-	}
+	assert.True(t, client.verifyServerProof(m1, serverProof), "verifyServerProof rejected a valid server proof")
+	assert.False(t, client.verifyServerProof(m1, bytes.Repeat([]byte{0}, 64)), "verifyServerProof accepted an invalid server proof")
 }
 
 func TestSRPWrongPasswordDiffersKey(t *testing.T) {
 	server := newSRPServer("111-11-111")
 	client, err := newSRPClient("222-22-222")
-	if err != nil {
-		t.Fatalf("newSRPClient: %v", err)
-	}
-	if _, err := client.computeProof(server.salt, pad(server.B, srpByteLen())); err != nil {
-		t.Fatalf("computeProof: %v", err)
-	}
-	if bytes.Equal(client.sessionKey(), server.sessionKey(client.publicKey())) {
-		t.Error("keys matched despite different passwords")
-	}
+	require.NoError(t, err)
+	_, err = client.computeProof(server.salt, pad(server.B, srpByteLen()))
+	require.NoError(t, err)
+	assert.NotEqual(t, server.sessionKey(client.publicKey()), client.sessionKey(), "keys matched despite different passwords")
 }

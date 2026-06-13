@@ -1,12 +1,13 @@
 package hap
 
 import (
-	"bytes"
 	"crypto/ed25519"
 	"crypto/rand"
 	"fmt"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/curve25519"
 	"tinygo.org/x/bluetooth"
 )
@@ -50,9 +51,7 @@ type mockAccessory struct {
 
 func newMockAccessory(t *testing.T, password string) *mockAccessory {
 	pub, priv, err := ed25519.GenerateKey(rand.Reader)
-	if err != nil {
-		t.Fatalf("accessory keygen: %v", err)
-	}
+	require.NoError(t, err)
 	return &mockAccessory{
 		t:        t,
 		password: password,
@@ -236,9 +235,7 @@ func (m *mockAccessory) handlePairVerify(state byte, req tlvs) ([]byte, error) {
 func mustTLV(t *testing.T, b []byte) tlvs {
 	t.Helper()
 	out, err := decodeTLV(b)
-	if err != nil {
-		t.Fatalf("decodeTLV: %v", err)
-	}
+	require.NoError(t, err)
 	return out
 }
 
@@ -263,46 +260,26 @@ func TestPairAndVerifyRoundTrip(t *testing.T) {
 	acc := newMockAccessory(t, formatSetupCode(code))
 
 	pd, err := pair(acc, code)
-	if err != nil {
-		t.Fatalf("pair: %v", err)
-	}
-	if pd.AccessoryID != acc.id {
-		t.Errorf("AccessoryID = %q; want %q", pd.AccessoryID, acc.id)
-	}
-	if !bytes.Equal(pd.AccessoryLTPK, acc.pub) {
-		t.Error("stored accessory LTPK does not match the accessory's key")
-	}
-	if _, ok := acc.pairings[pd.ControllerID]; !ok {
-		t.Error("accessory did not record our controller pairing")
-	}
+	require.NoError(t, err)
+	assert.Equal(t, acc.id, pd.AccessoryID)
+	assert.Equal(t, []byte(acc.pub), pd.AccessoryLTPK, "stored accessory LTPK does not match the accessory's key")
+	assert.Contains(t, acc.pairings, pd.ControllerID, "accessory did not record our controller pairing")
 
 	// Verify should round-trip and re-establish a session from the stored data.
 	sess, err := verify(acc, pd)
-	if err != nil {
-		t.Fatalf("verify: %v", err)
-	}
-	if !bytes.Equal(sess.writeKey, acc.sessReadKey) || !bytes.Equal(sess.readKey, acc.sessWriteKey) {
-		t.Fatal("session keys disagree between controller and accessory")
-	}
+	require.NoError(t, err)
+	require.Equal(t, acc.sessReadKey, sess.writeKey, "session keys disagree between controller and accessory")
+	require.Equal(t, acc.sessWriteKey, sess.readKey, "session keys disagree between controller and accessory")
 
 	// An encrypted characteristic write must decrypt to the expected value on the accessory.
-	if err := sess.SetOn(true); err != nil {
-		t.Fatalf("SetOn: %v", err)
-	}
-	if got := acc.writes[CharOn]; len(got) != 1 || got[0] != 1 {
-		t.Errorf("accessory received On = % x; want 01", got)
-	}
-	if err := sess.SetHue(120); err != nil {
-		t.Fatalf("SetHue: %v", err)
-	}
-	if got := acc.writes[CharHue]; !bytes.Equal(got, floatLE(120)) {
-		t.Errorf("accessory received Hue = % x; want % x", got, floatLE(120))
-	}
+	require.NoError(t, sess.SetOn(true))
+	assert.Equal(t, []byte{1}, acc.writes[CharOn], "accessory received unexpected On value")
+	require.NoError(t, sess.SetHue(120))
+	assert.Equal(t, floatLE(120), acc.writes[CharHue], "accessory received unexpected Hue value")
 }
 
 func TestPairWrongCodeRejected(t *testing.T) {
 	acc := newMockAccessory(t, formatSetupCode("11111111"))
-	if _, err := pair(acc, "22222222"); err == nil {
-		t.Error("pair succeeded with the wrong setup code")
-	}
+	_, err := pair(acc, "22222222")
+	assert.Error(t, err, "pair succeeded with the wrong setup code")
 }
