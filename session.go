@@ -51,10 +51,7 @@ func (s *Session) request(charUUID bluetooth.UUID, opcode byte, body []byte) (st
 	if err != nil {
 		return 0, nil, err
 	}
-	fragSize := s.c.fragmentSize() - tagSize // leave room for the tag within one GATT op
-	if fragSize < 1 {
-		fragSize = 1
-	}
+	fragSize := max(s.c.fragmentSize()-tagSize, 1) // leave room for the tag within one GATT op
 	writeFrag := func(plain []byte) error {
 		ct, err := chachaSeal(s.writeKey, chachaNonce(s.writeCounter), plain)
 		if err != nil {
@@ -87,7 +84,7 @@ func (s *Session) WriteCharacteristic(charUUID bluetooth.UUID, value []byte) err
 	}
 	body := tlvs{}.add(hapParamValue, value).encode()
 	var status byte
-	for attempt := 0; attempt < writeRetries; attempt++ {
+	for attempt := range writeRetries {
 		if attempt > 0 {
 			time.Sleep(time.Duration(attempt) * 40 * time.Millisecond)
 		}

@@ -45,10 +45,7 @@ func fragment(pdu []byte, tid byte, fragmentSize int) [][]byte {
 	}
 	out := [][]byte{append([]byte(nil), pdu[:fragmentSize]...)}
 	for rest := pdu[fragmentSize:]; len(rest) > 0; {
-		n := fragmentSize - 2
-		if n > len(rest) {
-			n = len(rest)
-		}
+		n := min(fragmentSize-2, len(rest))
 		frag := append([]byte{controlContinuation, tid}, rest[:n]...)
 		out = append(out, frag)
 		rest = rest[n:]

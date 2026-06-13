@@ -1,0 +1,25 @@
+version: "2"
+linters:
+  disable:
+    - errcheck
+  enable:
+    - bidichk
+    - bodyclose
+    - canonicalheader
+    - copyloopvar
+    - loggercheck
+    - misspell
+    - modernize
+    - perfsprint
+    - prealloc
+    - revive
+    - testifylint
+formatters:
+  enable:
+    - gci
+    - gofmt
+  settings:
+    gci:
+      sections:
+        - standard
+        - default

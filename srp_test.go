@@ -23,8 +23,8 @@ func TestSRPGroupConstant(t *testing.T) {
 // both sides derive the same key and the proofs verify, the client math is internally
 // consistent.
 type srpServer struct {
-	salt, v   []byte
-	b, B, key *big.Int
+	salt, v []byte
+	b, B    *big.Int
 }
 
 func newSRPServer(password string) *srpServer {

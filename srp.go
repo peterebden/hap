@@ -3,7 +3,7 @@ package hap
 import (
 	"crypto/rand"
 	"crypto/sha512"
-	"fmt"
+	"errors"
 	"math/big"
 )
 
@@ -101,7 +101,7 @@ func newSRPClient(password string) (*srpClient, error) {
 	a := new(big.Int).SetBytes(priv)
 	A := new(big.Int).Exp(srpG, a, srpN)
 	if A.Sign() == 0 {
-		return nil, fmt.Errorf("hap: degenerate SRP public key, retry")
+		return nil, errors.New("hap: degenerate SRP public key, retry")
 	}
 	return &srpClient{password: password, a: a, A: A}, nil
 }
@@ -115,12 +115,12 @@ func (c *srpClient) computeProof(salt, serverB []byte) (m1 []byte, err error) {
 	n := srpByteLen()
 	B := new(big.Int).SetBytes(serverB)
 	if new(big.Int).Mod(B, srpN).Sign() == 0 {
-		return nil, fmt.Errorf("hap: server SRP public key is zero mod N")
+		return nil, errors.New("hap: server SRP public key is zero mod N")
 	}
 
 	u := new(big.Int).SetBytes(sha512Sum(pad(c.A, n), pad(B, n)))
 	if u.Sign() == 0 {
-		return nil, fmt.Errorf("hap: SRP u parameter is zero")
+		return nil, errors.New("hap: SRP u parameter is zero")
 	}
 	// x = H(PAD(salt,16) | H(username:password))
 	inner := sha512Sum([]byte(srpUsername + ":" + c.password))

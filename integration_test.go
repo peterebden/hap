@@ -3,6 +3,7 @@ package hap
 import (
 	"crypto/ed25519"
 	"crypto/rand"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -32,9 +33,9 @@ type mockAccessory struct {
 	srpK        []byte
 	setupEncKey []byte
 
-	verifyEphPub []byte
-	verifyShared []byte
-	verifyEncKey []byte
+	verifyEphPub  []byte
+	verifyShared  []byte
+	verifyEncKey  []byte
 	controllerEph []byte // controller ephemeral pub from verify M1
 
 	secured          bool
@@ -66,9 +67,9 @@ func newMockAccessory(t *testing.T, password string) *mockAccessory {
 
 // --- conn implementation ---
 
-func (m *mockAccessory) IID(charUUID bluetooth.UUID) (uint16, error) { return 0x0033, nil }
-func (m *mockAccessory) nextTID() byte                               { m.tid++; return m.tid }
-func (m *mockAccessory) fragmentSize() int                           { return 512 }
+func (m *mockAccessory) IID(_ bluetooth.UUID) (uint16, error) { return 0x0033, nil }
+func (m *mockAccessory) nextTID() byte                        { m.tid++; return m.tid }
+func (m *mockAccessory) fragmentSize() int                    { return 512 }
 
 func (m *mockAccessory) writeFragment(charUUID bluetooth.UUID, data []byte) error {
 	switch charUUID {
@@ -161,7 +162,7 @@ func (m *mockAccessory) handlePairSetup(state byte, req tlvs) ([]byte, error) {
 		ctrlSig, _ := sub.first(tlvSignature)
 		ctrlInfo := concat(hkdfPairSetupController.derive(m.srpK), ctrlID, ctrlPub)
 		if !ed25519.Verify(ed25519.PublicKey(ctrlPub), ctrlInfo, ctrlSig) {
-			return nil, fmt.Errorf("mock: controller signature invalid in M5")
+			return nil, errors.New("mock: controller signature invalid in M5")
 		}
 		m.pairings[string(ctrlID)] = append(ed25519.PublicKey(nil), ctrlPub...)
 		// M6: our identity, signed.
@@ -219,7 +220,7 @@ func (m *mockAccessory) handlePairVerify(state byte, req tlvs) ([]byte, error) {
 		}
 		ctrlInfo := concat(m.controllerEph, ctrlID, m.verifyEphPub)
 		if !ed25519.Verify(ctrlLTPK, ctrlInfo, ctrlSig) {
-			return nil, fmt.Errorf("mock: controller signature invalid in verify M3")
+			return nil, errors.New("mock: controller signature invalid in verify M3")
 		}
 		// Mirror the controller's key derivation (read/write swapped from its viewpoint).
 		m.sessReadKey = hkdfControlWrite.derive(m.verifyShared)

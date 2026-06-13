@@ -104,7 +104,11 @@ func pairingExchange(c conn, charUUID bluetooth.UUID, request []byte) (tlvs, err
 
 // concat joins byte slices, used to build the signed info blocks in pairing.
 func concat(parts ...[]byte) []byte {
-	var out []byte
+	n := 0
+	for _, p := range parts {
+		n += len(p)
+	}
+	out := make([]byte, 0, n)
 	for _, p := range parts {
 		out = append(out, p...)
 	}

@@ -2,6 +2,7 @@ package hap
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -27,11 +28,11 @@ type PairingData struct {
 func (p PairingData) valid() error {
 	switch {
 	case p.AccessoryID == "":
-		return fmt.Errorf("hap: pairing data missing accessory ID")
+		return errors.New("hap: pairing data missing accessory ID")
 	case len(p.AccessoryLTPK) != 32:
 		return fmt.Errorf("hap: accessory LTPK is %d bytes, want 32", len(p.AccessoryLTPK))
 	case p.ControllerID == "":
-		return fmt.Errorf("hap: pairing data missing controller ID")
+		return errors.New("hap: pairing data missing controller ID")
 	case len(p.ControllerLTSK) != 32:
 		return fmt.Errorf("hap: controller LTSK is %d bytes, want 32", len(p.ControllerLTSK))
 	}

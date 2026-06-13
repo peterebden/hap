@@ -54,10 +54,7 @@ func (t tlvs) encode() []byte {
 		v := item.Value
 		// A zero-length value still emits one item.
 		for {
-			n := len(v)
-			if n > 255 {
-				n = 255
-			}
+			n := min(len(v), 255)
 			out = append(out, item.Type, byte(n))
 			out = append(out, v[:n]...)
 			v = v[n:]

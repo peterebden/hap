@@ -170,11 +170,11 @@ func annotateATTError(err error) error {
 	}
 	const marker = "ATT error: 0x"
 	s := err.Error()
-	i := strings.Index(s, marker)
-	if i < 0 {
+
+	_, hex, ok := strings.Cut(s, marker)
+	if !ok {
 		return err
 	}
-	hex := s[i+len(marker):]
 	if len(hex) < 2 {
 		return err
 	}
@@ -187,4 +187,3 @@ func annotateATTError(err error) error {
 	}
 	return err
 }
-
